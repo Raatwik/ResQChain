@@ -1,0 +1,708 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>ResQChain</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<script src="https://cdn.tailwindcss.com"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster/dist/MarkerCluster.css"/>
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster/dist/MarkerCluster.Default.css"/>
+<script src="https://unpkg.com/leaflet.markercluster/dist/leaflet.markercluster.js"></script>
+
+<link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine/dist/leaflet-routing-machine.css"/>
+<script src="https://unpkg.com/leaflet-routing-machine/dist/leaflet-routing-machine.js"></script>
+
+<script src="https://unpkg.com/leaflet.heat/dist/leaflet-heat.js"></script>
+
+<style>
+body{font-family:Inter,sans-serif;background:#f8fafc}
+body.dark{background:#0f172a;color:#e5e7eb}
+header{position:fixed;top:0;width:100%;z-index:5000;background:white}
+body.dark header{background:#020617}
+#alertPulse {
+  background: radial-gradient(circle at center,
+    rgba(239,68,68,0.6),
+    transparent 60%);
+}
+
+#map{height:420px;border-radius:16px}
+.card{background:white;border-radius:18px;box-shadow:0 12px 30px rgba(0,0,0,.08)}
+body.dark .card{background:#020617}
+
+#recenterBtn{z-index:3000}
+.modal{z-index:9000}
+
+/* status */
+.status-safe{background:#dcfce7;color:#065f46}
+.status-alert{background:#fee2e2;color:#7f1d1d}
+
+/* markers */
+.pulse{width:14px;height:14px;border-radius:50%;position:relative}
+.pulse::after{content:"";position:absolute;inset:0;border-radius:50%;animation:pulse 1.5s infinite}
+.user{background:#2563eb}
+.user::after {
+  animation: pulse 1.2s infinite;
+}
+
+.hospital{background:#dc2626}
+.pharmacy{background:#16a34a}
+.shelter{background:#ea580c}
+.user::after,.hospital::after,.pharmacy::after,.shelter::after{background:inherit}
+.leaflet-marker-icon .pulse{
+  animation:pulse 1.2s infinite;
+}
+.ai-btn{
+  padding:12px;
+  border-radius:12px;
+  background:#fff7ed;
+  border:1px solid #fed7aa;
+  font-weight:600;
+  transition:.2s;
+}
+.ai-btn:hover{
+  background:#ffedd5;
+  transform:translateY(-2px);
+}
+/* Dark Theme Styles */
+body.dark-theme {
+    background-color: #1c1917 !important;
+    color: #f5f5f4 !important;
+}
+
+.dark-theme .bg-white, 
+.dark-theme .bg-stone-50 {
+    background-color: #292524 !important;
+    color: #f5f5f4 !important;
+    border-color: #444 !important;
+}
+
+.dark-theme .text-stone-900, 
+.dark-theme .text-stone-600 {
+    color: #e7e5e4 !important;
+}
+
+/* Make the map container stay dark during transitions */
+.dark-theme #map {
+    background: #1c1917;
+}
+
+@keyframes pulse{0%{transform:scale(1);opacity:.6}100%{transform:scale(2.8);opacity:0}}
+</style>
+</head>
+
+<body>
+
+<header>
+  <span id="offlineBadge" class="hidden bg-gray-600 text-white text-[10px] px-2 py-1 rounded">OFFLINE MODE</span>
+  <div class="max-w-7xl mx-auto px-6 py-4 grid grid-cols-3 items-center">
+
+    <!-- LEFT: Profile -->
+    <div class="relative justify-self-start">
+      <button id="profileBtn" class="flex items-center gap-2">
+        <div class="w-9 h-9 bg-orange-600 text-white rounded-full flex items-center justify-center font-bold">U</div>
+        <span id="profileName" class="font-semibold">User</span>
+      </button>
+
+      <div id="profileMenu" class="hidden absolute mt-2 bg-white rounded shadow">
+        <button onclick="openProfile()"
+          class="block px-4 py-2 w-full text-left hover:bg-slate-100">
+          Edit Profile
+        </button>
+        <button onclick="logout()"
+          class="block px-4 py-2 w-full text-left text-red-600 hover:bg-red-50">
+          Logout
+        </button>
+      </div>
+    </div>
+
+    <!-- CENTER: Title -->
+    <h1 class="text-xl font-bold justify-self-center">
+      🚨 ResQChain
+    </h1>
+
+    
+    <div class="flex items-center gap-3 justify-self-end">
+      <a href="index.html"
+        class="text-sm font-semibold text-blue-600 hover:underline">
+        About Us
+      </a>
+
+      <button id="themeToggle" class="px-3 py-1 border rounded text-sm bg-stone-800 text-white">
+  🌙 Dark Mode
+</button>
+    </div>
+
+  </div>
+</header>
+
+
+<main class="pt-28 max-w-7xl mx-auto px-6 space-y-10">
+
+<div id="alerts" class="mb-6">
+    <div class="p-5 rounded-2xl bg-gray-800/50 border border-white/10 backdrop-blur-md animate-pulse">
+        <div class="flex justify-between items-center">
+            <h2 class="text-xl font-bold text-white/50">INITIALIZING LIVE STATUS...</h2>
+            <span class="text-[10px] bg-white/10 px-2 py-1 rounded">CONNECTING</span>
+        </div>
+        <p class="text-xs text-white/40 mt-2">Fetching local weather and disaster parameters...</p>
+    </div>
+</div>
+
+<button id="heatToggle" class="px-4 py-2 bg-orange-600 text-white rounded">
+  🔥 Toggle Heat Map
+</button>
+
+<div class="relative">
+  <div id="map"></div>
+  <button id="recenterBtn"
+    class="absolute bottom-4 right-4 bg-white shadow rounded-full w-11 h-11">
+    📍
+  </button>
+</div>
+
+<!-- Map Legend -->
+<div class="card p-4 text-sm">
+  <h3 class="font-bold mb-2">🗺️ Map Legend</h3>
+  <ul class="space-y-1">
+    <li>🔴 Hospital</li>
+    <li>🟢 Medicine Shop</li>
+    <li>🟠 Shelter</li>
+    <li>🔥 Heat Map: Blue → Low crowd, Red → High crowd / risk</li>
+  </ul>
+</div>
+
+<div class="grid md:grid-cols-3 gap-6">
+  <div class="card p-4"><h3 class="font-bold mb-2">🏥 Hospitals</h3><div id="hospitals"></div></div>
+  <div class="card p-4"><h3 class="font-bold mb-2">💊 Medicine Shops</h3><div id="medicine"></div></div>
+  <div class="card p-4"><h3 class="font-bold mb-2">🏠 Shelters</h3><div id="shelters"></div></div>
+</div>
+
+<div class="card p-6 space-y-4">
+  <h3 class="font-bold text-lg">Request Shelter / Relief</h3>
+
+  <input id="reqName" class="w-full p-3 border rounded" placeholder="Your Name">
+
+  <input id="reqPhone" class="w-full p-3 border rounded" placeholder="Phone Number">
+
+  <textarea id="reqAddress" class="w-full p-3 border rounded" placeholder="Current Address"></textarea>
+
+  <input id="reqItem" class="w-full p-3 border rounded"
+    placeholder="Required Items (Food, Water, Medicine, Shelter)">
+
+  <select id="shelterSelect" class="w-full p-3 border rounded">
+    <option value="">Select Nearby Shelter</option>
+  </select>
+
+  <button id="sendRequestBtn"
+    class="w-full bg-orange-600 text-white py-3 rounded font-semibold">
+    Send Request
+  </button>
+
+  <!-- Delivery Status -->
+  <div id="deliveryStatus" class="hidden mt-4 p-4 rounded-lg bg-slate-100">
+    <h4 class="font-bold mb-2">📦 Delivery Status</h4>
+    <ul class="space-y-1 text-sm">
+      <li id="st1">⏳ Request Sent</li>
+      <li id="st2" class="opacity-40">✅ Accepted</li>
+      <li id="st3" class="opacity-40">🚚 On the Way</li>
+      <li id="st4" class="opacity-40">📍 Delivered</li>
+    </ul>
+  </div>
+</div>
+
+<!-- AI Panic Assistant -->
+<div class="card p-6 space-y-4">
+
+  <h3 class="font-bold text-lg mb-2">
+  🆘 Emergency Help & First Aid Guidance
+</h3>
+
+<p class="text-sm text-slate-500 mb-3">
+  Tap a situation below to get step-by-step guidance during emergencies.
+</p>
+
+
+  <!-- Buttons -->
+  <div class="grid sm:grid-cols-2 md:grid-cols-3 gap-3">
+
+    <button onclick="aiHelp('bleeding')" class="ai-btn">🩸 Bleeding</button>
+    <button onclick="aiHelp('burn')" class="ai-btn">🔥 Burns</button>
+    <button onclick="aiHelp('fracture')" class="ai-btn">🦴 Fracture</button>
+
+    <button onclick="aiHelp('earthquake')" class="ai-btn">🌍 Earthquake</button>
+    <button onclick="aiHelp('flood')" class="ai-btn">🌊 Flood</button>
+    <button onclick="aiHelp('cyclone')" class="ai-btn">🌀 Cyclone</button>
+
+    <button onclick="aiHelp('fire')" class="ai-btn">🔥 Fire</button>
+    <button onclick="aiHelp('heatwave')" class="ai-btn">☀️ Heatwave</button>
+
+  </div>
+
+  <!-- AI Response -->
+  <div id="aiResponse"
+       class="mt-4 hidden bg-orange-50 border-l-4 border-orange-600
+              p-4 rounded text-sm">
+  </div>
+
+</div>
+
+</main>
+
+<!-- Profile Modal -->
+<div id="profileModal" class="modal hidden fixed inset-0 bg-black/50 flex items-center justify-center">
+  <div class="bg-white p-6 rounded w-full max-w-md">
+    <h2 class="font-bold text-lg mb-3">Edit Profile</h2>
+    <input id="nameInput" class="w-full p-2 border rounded mb-2" placeholder="Name">
+    <input id="phoneInput" class="w-full p-2 border rounded mb-2" placeholder="Phone">
+    <textarea id="addressInput" class="w-full p-2 border rounded mb-3" placeholder="Address"></textarea>
+    <button onclick="saveProfile()" class="px-4 py-2 bg-orange-600 text-white rounded">Save</button>
+  </div>
+</div>
+<script>
+//IF YOU ARE OFFLINE
+const SyncManager = {
+    // The Single Source of Truth for your data
+    state: { hospitals: [], medicine: [], shelters: [] },
+
+    async sync(amenity, key, delay = 0) {
+        // Step A: Serve from Cache immediately (The Speed Algorithm)
+        const cached = JSON.parse(localStorage.getItem(`cached_${key}`)) || [];
+        this.state[key] = cached;
+        this.renderUI(key, true); // Render with "OFFLINE/CACHED" styling
+
+        // Step B: Staggered Live Sync (The Performance Algorithm)
+        await new Promise(r => setTimeout(r, delay));
+        if (!navigator.onLine) return; // Exit if truly offline
+
+        try {
+            const query = `[out:json][timeout:30];(node["amenity"~"${amenity}"](around:15000,${window.userLat},${window.userLon}););out center;`;
+            const data = await fetchWithFallback(query); // Uses your existing fallback logic
+            
+            if (data.elements) {
+                const processed = data.elements.map(e => ({
+                    ...e,
+                    d: calculateDist(window.userLat, window.userLon, e.lat || e.center.lat, e.lon || e.center.lon)
+                })).sort((a, b) => a.d - b.d);
+
+                // Update Cache and State
+                localStorage.setItem(`cached_${key}`, JSON.stringify(processed));
+                this.state[key] = processed;
+                this.renderUI(key, false); // Update with "LIVE" styling
+            }
+        } catch (e) { console.warn(`Sync failed for ${key}, staying in offline mode.`); }
+    },
+
+    renderUI(key, isCached) {
+        const el = document.getElementById(key);
+        if (!el) return;
+        el.innerHTML = ""; // Clear current list
+
+        this.state[key].slice(0, 5).forEach(item => {
+            const la = item.lat || item.center.lat;
+            const lo = item.lon || item.center.lon;
+            const dir = getCompassDirection(window.userLat, window.userLon, la, lo);
+            const navUrl = `https://www.google.com/maps/dir/?api=1&origin=${window.userLat},${window.userLon}&destination=${la},${lo}&travelmode=walking`;
+
+            el.innerHTML += `
+                <div class="mb-3 p-3 ${isCached ? 'bg-gray-100 border-dashed opacity-75' : 'bg-white shadow-sm'} rounded-lg border">
+                    <div class="flex justify-between items-start">
+                        <b class="text-xs">${item.tags?.name || "Emergency Point"}</b>
+                        <span class="text-[8px] font-bold px-1 rounded ${isCached ? 'bg-orange-100 text-orange-600' : 'bg-green-100 text-green-600'}">
+                            ${isCached ? 'CACHED' : 'LIVE'}
+                        </span>
+                    </div>
+                    <div class="flex justify-between items-center mt-2">
+                        <span class="text-[10px] font-bold text-blue-600">${item.d.toFixed(1)} km</span>
+                        <a href="${navUrl}" target="_blank" class="bg-blue-600 text-white px-2 py-1 rounded text-[9px] font-bold">NAVIGATE</a>
+                    </div>
+                </div>`;
+            
+            // Add marker to map
+            cluster.addLayer(L.marker([la, lo], { icon: icon(key === 'hospitals' ? 'hospital' : key === 'medicine' ? 'pharmacy' : 'shelter') }));
+        });
+    }
+};
+window.addEventListener('offline', () => {
+document.getElementById('offlineBadge').classList.remove('hidden');
+alert("Internet lost. Emergency instructions are still available offline.");
+});
+// 1. Define helpers ONCE
+const icon = (c) => L.divIcon({
+    className: 'custom-div-icon',
+    html: `<div style="background:${c==='user'?'#3b82f6':c==='hospital'?'#ef4444':c==='pharmacy'?'#10b981':'#f59e0b'};" class="w-4 h-4 rounded-full border-2 border-white shadow-lg pulse"></div>`,
+    iconSize: [16, 16]
+});
+
+const calculateDist = (l1, n1, l2, n2) => {
+    const R = 6371;
+    const dLat = (l2 - l1) * Math.PI / 180;
+    const dLon = (n2 - n1) * Math.PI / 180;
+    const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+        Math.cos(l1 * Math.PI / 180) * Math.cos(l2 * Math.PI / 180) *
+        Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+};
+
+// Helper to provide direction even if the map is offline
+function getCompassDirection(lat1, lon1, lat2, lon2) {
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const y = Math.sin(dLon) * Math.cos(lat2 * Math.PI / 180);
+    const x = Math.cos(lat1 * Math.PI / 180) * Math.sin(lat2 * Math.PI / 180) -
+              Math.sin(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.cos(dLon);
+    const brng = (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
+    const dirs = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
+    return dirs[Math.round(brng / 45) % 8];
+}
+
+const overpassServers = [
+    "https://overpass-api.de/api/interpreter",
+    "https://overpass.kumi.systems/api/interpreter",
+    "https://overpass.osm.ch/api/interpreter"
+];
+
+async function fetchWithFallback(query, serverIndex = 0) {
+    try {
+        const response = await fetch(overpassServers[serverIndex] + "?data=" + encodeURIComponent(query));
+        if (!response.ok && serverIndex < overpassServers.length - 1) {
+            return fetchWithFallback(query, serverIndex + 1);
+        }
+        return await response.json();
+    } catch (err) {
+        if (serverIndex < overpassServers.length - 1) return fetchWithFallback(query, serverIndex + 1);
+        throw err;
+    }
+}
+
+// 2. Start Geolocation
+// --- 1. GLOBAL STATE & IMMEDIATE MAP INIT ---
+const startLat = parseFloat(localStorage.getItem('lastLat')) || 0;
+const startLon = parseFloat(localStorage.getItem('lastLon')) || 0;
+window.userLat = startLat;
+window.userLon = startLon;
+
+// INITIALIZE MAP IMMEDIATELY (Fixes the "ReferenceError")
+const map = L.map('map').setView([startLat, startLon], 14);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+
+const userMarker = L.marker([startLat, startLon], { icon: icon('user') }).addTo(map);
+const cluster = L.markerClusterGroup().addTo(map);
+
+let heatPoints = []; // Changed to let
+let heatLayer = null; // Changed to let and set to null
+let routeControl = null;
+
+// --- 2. OFFLINE HYDRATION (Show markers even if refresh while offline) ---
+const hydrateFromCache = () => {
+    ['hospitals', 'medicine', 'shelters'].forEach(id => {
+        const cached = localStorage.getItem(`cached_${id}`);
+        if (cached) {
+            const elements = JSON.parse(cached);
+            const el = document.getElementById(id);
+            if (el) el.innerHTML = ""; 
+
+            elements.slice(0, 5).forEach(i => {
+                const la = i.lat || i.center.lat;
+                const lo = i.lon || i.center.lon;
+                
+                // 1. Add Marker to Map
+                cluster.addLayer(L.marker([la, lo], { 
+                    icon: icon(id === 'hospitals' ? 'hospital' : id === 'medicine' ? 'pharmacy' : 'shelter') 
+                }));
+
+                // 2. Add to Sidebar List with Google Link
+                if (el) {
+                    const dist = calculateDist(window.userLat, window.userLon, la, lo).toFixed(1);
+                    const dir = getCompassDirection(window.userLat, window.userLon, la, lo);
+                    
+                    // Standard Google Maps URL for navigation
+                    const googleNav = `https://www.google.com/maps/dir/?api=1&origin=${window.userLat},${window.userLon}&destination=${la},${lo}&travelmode=walking`;
+
+                    el.innerHTML += `
+                        <div class="mb-3 p-3 bg-white rounded-lg border border-gray-100 shadow-sm">
+                            <b class="text-xs block text-gray-800">${i.tags?.name || "Emergency Point"}</b>
+                            <div class="flex justify-between items-center mt-2">
+                                <span class="text-[10px] font-bold text-blue-600">${dist} km</span>
+                                <span class="text-[10px] font-bold text-orange-600">${dir}</span>
+                                <a href="${googleNav}" target="_blank" class="bg-blue-600 text-white px-2 py-1 rounded text-[9px] font-bold">GOOGLE NAV</a>
+                            </div>
+                        </div>`;
+                }
+
+                // 3. Add to Dropdown (for Leaflet/Offline Routing)
+                if (id === 'shelters') {
+                    const opt = document.createElement("option");
+                    opt.value = `${la},${lo}`;
+                    opt.textContent = i.tags?.name || "Shelter";
+                    document.getElementById("shelterSelect").appendChild(opt);
+                }
+            });
+        }
+    });
+};
+hydrateFromCache();
+
+// --- 3. LIVE STATUS HANDLER ---
+async function updateLiveStatus(lat, lon) {
+    const alertBox = document.getElementById("alerts");
+    alertBox.innerHTML = `<div class="p-5 bg-blue-500/20 text-blue-400 rounded-2xl animate-pulse text-center font-bold">📡 CONNECTING...</div>`;
+    try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 5000);
+        const res = await fetch(`http://127.0.0.1:8000/live-alerts?lat=${lat}&lon=${lon}`, { signal: controller.signal });
+        const data = await res.json();
+        clearTimeout(timeoutId);
+        alertBox.innerHTML = data.status === "alert" ? 
+            `<div class="p-5 bg-red-600 text-white rounded-2xl animate-pulse">🚨 ${data.message}</div>` : 
+            `<div class="p-5 bg-green-500/20 text-green-400 rounded-2xl border border-green-500">✅ YOU ARE SAFE</div>`;
+    } catch (err) {
+        alertBox.innerHTML = `<div class="p-5 bg-orange-500/20 text-orange-400 rounded-2xl border border-orange-500">⚠️ OFFLINE MODE (Cached Data)</div>`;
+    }
+}
+
+// --- 4. NAVIGATION LOGIC (EVACUATION ROUTE) ---
+document.getElementById("shelterSelect").onchange = (e) => {
+    // 1. Clear any existing route from the map
+    if (routeControl) {
+        map.removeControl(routeControl);
+        routeControl = null;
+    }
+
+    // 2. If "Select Nearby Shelter" is chosen, stop here
+    if (!e.target.value) return;
+
+    // 3. Get destination coordinates from the dropdown value
+    const [destLat, destLon] = e.target.value.split(",");
+
+    // 4. Create and add the routing control
+    // It uses window.userLat/window.userLon which are updated by your GPS script
+    routeControl = L.Routing.control({
+        waypoints: [
+            L.latLng(window.userLat, window.userLon), // Start: User Location
+            L.latLng(destLat, destLon)                // End: Selected Shelter
+        ],
+        lineOptions: {
+            styles: [{ color: '#ea580c', weight: 6, opacity: 0.8 }] // Orange route
+        },
+        addWaypoints: false,
+        draggableWaypoints: false,
+        show: true,          // Hides the text directions panel for a cleaner look
+        createMarker: function() { return null; } // Uses your existing custom markers
+    }).addTo(map);
+
+    // 5. Automatically focus the map on the destination
+    map.flyTo([destLat, destLon], 15);
+};
+// --- 5. START UPDATES ---
+updateLiveStatus(startLat, startLon);
+
+navigator.geolocation.getCurrentPosition(async pos => {
+    const lat = pos.coords.latitude;
+    const lon = pos.coords.longitude;
+    localStorage.setItem('lastLat', lat);
+    localStorage.setItem('lastLon', lon);
+    window.userLat = lat; 
+    window.userLon = lon;
+
+    userMarker.setLatLng([lat, lon]);
+    map.setView([lat, lon], 14);
+    updateLiveStatus(lat, lon);
+
+    // NEW: Predictive Sync Algorithm calls
+  SyncManager.sync("hospital|clinic", "hospitals", 0);
+  SyncManager.sync("pharmacy", "medicine", 1000);   
+  SyncManager.sync("school|community_centre", "shelters", 2000);  
+});
+    /*catch(err) {
+        console.error("Fetch Error:", err);
+    }*/
+
+    
+    
+sendRequestBtn.onclick = () => {
+  if (!reqName.value || !reqPhone.value || !reqAddress.value || !reqItem.value) {
+    alert("Please fill all details before requesting");
+    return;
+  }
+
+  deliveryStatus.classList.remove("hidden");
+
+  // Reset states (in case user submits again)
+  st1.classList.remove("opacity-40");
+  st2.classList.add("opacity-40");
+  st3.classList.add("opacity-40");
+  st4.classList.add("opacity-40");
+
+  // Move only to "Accepted / Processing"
+  setTimeout(() => {
+    st2.classList.remove("opacity-40");
+  }, 2000);
+};
+
+
+function aiHelp(type) {
+  const box = document.getElementById("aiResponse");
+  
+  const responses = {
+    bleeding: `
+      🩸 <b>STOP SEVERE BLEEDING</b><br><br>
+      <b>Step 1:</b> Find the source of the bleeding.<br>
+      <b>Step 2:</b> Press a clean cloth firmly on the wound.<br>
+      <b>Step 3:</b> Do not lift the cloth to check if it stopped.<br>
+      <b>Step 4:</b> If the cloth soaks through, put another on top.<br>
+      <b>Step 5:</b> Keep pressing until professional help arrives.
+    `,
+    burn: `
+      🔥 <b>TREATING BURNS</b><br><br>
+      <b>Step 1:</b> Move away from the heat source.<br>
+      <b>Step 2:</b> Run cool (not cold) water over the burn for 20 minutes.<br>
+      <b>Step 3:</b> Remove jewelry or tight clothes before the area swells.<br>
+      <b>Step 4:</b> Cover the burn loosely with plastic wrap or a clean bag.<br>
+      <b>Step 5:</b> Do not pop any blisters or apply butter/creams.
+    `,
+    fracture: `
+      🦴 <b>BROKEN BONES (FRACTURE)</b><br><br>
+      <b>Step 1:</b> Do not try to straighten or move the bone.<br>
+      <b>Step 2:</b> Support the limb with a soft cushion or a makeshift splint.<br>
+      <b>Step 3:</b> Apply an ice pack wrapped in a cloth to reduce swelling.<br>
+      <b>Step 4:</b> Keep the person still and calm.<br>
+      <b>Step 5:</b> Wait for emergency responders to move the person.
+    `,
+    earthquake: `
+      🌍 <b>DURING AN EARTHQUAKE</b><br><br>
+      <b>Step 1:</b> <b>DROP</b> down onto your hands and knees.<br>
+      <b>Step 2:</b> <b>COVER</b> your head and neck under a sturdy table.<br>
+      <b>Step 3:</b> <b>HOLD ON</b> to your shelter until shaking stops.<br>
+      <b>Step 4:</b> Stay away from glass, windows, and outside walls.<br>
+      <b>Step 5:</b> Do not use elevators.
+    `,
+    flood: `
+      🌊 <b>FLOOD SAFETY</b><br><br>
+      <b>Step 1:</b> Move immediately to the highest floor or ground possible.<br>
+      <b>Step 2:</b> Do not walk, swim, or drive through flood water.<br>
+      <b>Step 3:</b> Turn off your main electricity and gas if safe to do so.<br>
+      <b>Step 4:</b> Carry your emergency kit and a charged phone.<br>
+      <b>Step 5:</b> Avoid contact with water; it may be contaminated.
+    `,
+    cyclone: `
+      🌀 <b>CYCLONE / WIND STORM</b><br><br>
+      <b>Step 1:</b> Go to the strongest part of the house (usually the center).<br>
+      <b>Step 2:</b> Stay away from all windows and glass doors.<br>
+      <b>Step 3:</b> Keep a battery-powered radio or phone nearby for news.<br>
+      <b>Step 4:</b> Do not go outside until the "All Clear" is officially given.<br>
+      <b>Step 5:</b> Beware of the "Eye" of the storm; wind will return suddenly.
+    `,
+    fire: `
+      🔥 <b>FIRE EMERGENCY</b><br><br>
+      <b>Step 1:</b> Get low to the floor to avoid breathing in smoke.<br>
+      <b>Step 2:</b> Feel doors with the back of your hand; if hot, do not open.<br>
+      <b>Step 3:</b> If clothes catch fire: <b>STOP, DROP, and ROLL</b>.<br>
+      <b>Step 4:</b> Exit the building immediately using stairs.<br>
+      <b>Step 5:</b> Once outside, stay out. Never go back in for items.
+    `,
+    heatwave: `
+      ☀️ <b>EXTREME HEAT SAFETY</b><br><br>
+      <b>Step 1:</b> Drink plenty of water even if you don't feel thirsty.<br>
+      <b>Step 2:</b> Stay in the shade or an air-conditioned room.<br>
+      <b>Step 3:</b> Wear lightweight, light-colored, and loose clothing.<br>
+      <b>Step 4:</b> Limit outdoor activity to early morning or evening.<br>
+      <b>Step 5:</b> Check on elderly neighbors and children.
+    `
+  };
+
+  box.innerHTML = responses[type] || "Guidance not found."; 
+  box.classList.remove("hidden");
+  box.scrollIntoView({ behavior: 'smooth' });
+}
+// --- HEAT MAP TOGGLE LOGIC ---
+document.getElementById('heatToggle').onclick = function() {
+    // 1. Check if layer exists and is on map
+    if (heatLayer && map.hasLayer(heatLayer)) {
+        map.removeLayer(heatLayer);
+        this.classList.replace('bg-orange-800', 'bg-orange-600');
+        this.innerText = "🔥 Toggle Heat Map";
+        return;
+    }
+
+    // 2. Collect points with maximum intensity (1.0)
+    heatPoints = [];
+    cluster.eachLayer(layer => {
+        const latlng = layer.getLatLng();
+        heatPoints.push([latlng.lat, latlng.lng, 1.0]); 
+    });
+
+    // 3. Create high-intensity layer
+    if (heatPoints.length > 0) {
+        heatLayer = L.heatLayer(heatPoints, { 
+            radius: 50,  
+            blur: 15,    
+            gradient: {0.4: 'blue', 0.65: 'lime', 1: 'red'}
+        }).addTo(map);
+        
+        this.classList.replace('bg-orange-600', 'bg-orange-800');
+        this.innerText = "❌ Hide Heat Map";
+    } else {
+        alert("No markers found to generate heat map!");
+    }
+};
+
+// --- SERVICE WORKER ---
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').catch(err => console.log(err));
+  });
+}
+// --- RECENTER BUTTON LOGIC ---
+document.getElementById('recenterBtn').onclick = function() {
+    // Check if we have a valid user location
+    if (window.userLat && window.userLon && window.userLat !== 0) {
+        // use flyTo for a smooth animation to your current coordinates
+        map.flyTo([window.userLat, window.userLon], 15);
+        
+        // Optional: Update the marker position just in case
+        userMarker.setLatLng([window.userLat, window.userLon]);
+    } else {
+        alert("Detecting your location... Please ensure GPS is enabled.");
+        
+        // Fallback to the default starting position if GPS failed
+        const startLat = parseFloat(localStorage.getItem('lastLat')) || 12.823;
+        const startLon = parseFloat(localStorage.getItem('lastLon')) || 80.044;
+        map.flyTo([startLat, startLon], 14);
+    }
+};
+// --- DARK THEME TOGGLE LOGIC ---
+const themeBtn = document.getElementById('themeToggle');
+
+if (themeBtn) {
+    themeBtn.onclick = function() {
+        // Toggle the class on the <body> tag
+        document.body.classList.toggle('dark-theme');
+        
+        // Update the button appearance
+        if (document.body.classList.contains('dark-theme')) {
+            this.innerText = "☀️ Light Mode";
+            this.classList.replace('bg-stone-800', 'bg-stone-200');
+            this.classList.replace('text-white', 'text-black');
+            localStorage.setItem('theme', 'dark');
+        } else {
+            this.innerText = "🌙 Dark Mode";
+            this.classList.replace('bg-stone-200', 'bg-stone-800');
+            this.classList.replace('text-black', 'text-white');
+            localStorage.setItem('theme', 'light');
+        }
+    };
+}
+
+// Check for saved user preference on page load
+if (localStorage.getItem('theme') === 'dark') {
+    document.body.classList.add('dark-theme');
+    if(themeBtn) themeBtn.innerText = "☀️ Light Mode";
+}
+</script>
+</body>
+</html>

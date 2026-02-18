@@ -1,0 +1,13 @@
+# Secrets
+.env
+*.env
+Backend/key/
+
+# Python junk
+__pycache__/
+*.pyc
+
+# Data (large files)
+*.csv
+*.json
+Backend/labels/

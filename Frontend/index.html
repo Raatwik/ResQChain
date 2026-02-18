@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ResQChain</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; background:#f8fafc; color:#334155 }
+        .hero-bg {
+            background-color:#1e3a8a;
+            background-image:
+              radial-gradient(circle at top right, rgba(147,197,253,.12), transparent 40%),
+              radial-gradient(circle at bottom left, rgba(59,130,246,.12), transparent 50%);
+        }
+        .section-divider{height:4px;width:80px;background:#3b82f6;border-radius:2px;margin:1rem auto}
+        .accordion-content{
+  max-height:0;
+  overflow:hidden;
+  transition:max-height .4s ease, padding .3s ease;
+  padding:0 1rem;
+}
+
+.accordion-item.active .accordion-content{
+  padding:1rem;
+}
+        .accordion-item.active .accordion-content{max-height:500px}
+        .accordion-item.active .accordion-icon{transform:rotate(180deg)}
+        .switch{position:relative;display:inline-block;width:60px;height:34px}
+        .switch input{opacity:0;width:0;height:0}
+        .slider{position:absolute;inset:0;background:#ccc;border-radius:34px;transition:.4s}
+        .slider:before{content:"";position:absolute;width:26px;height:26px;left:4px;bottom:4px;background:white;border-radius:50%;transition:.4s}
+        input:checked + .slider{background:#2563eb}
+        input:checked + .slider:before{transform:translateX(26px)}
+/* Generic 3D card */
+.card-3d{
+  transform-style: preserve-3d;
+  transition: transform .35s ease, box-shadow .35s ease;
+  will-change: transform;
+}
+
+.card-3d:hover{
+  transform: translateY(-8px) rotateX(4deg) rotateY(-2deg);
+  box-shadow: 0 30px 70px rgba(0,0,0,.25);
+}
+
+/* Soft glass effect */
+.glass{
+  background: rgba(255,255,255,.12);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+/* Button lift */
+.btn-lift{
+  transition: transform .25s ease, box-shadow .25s ease;
+}
+.btn-lift:hover{
+  transform: translateY(-3px);
+  box-shadow: 0 12px 25px rgba(0,0,0,.25);
+}
+
+/* FAQ card depth */
+.accordion-item{
+  transition: box-shadow .3s ease, transform .3s ease;
+}
+.accordion-item:hover{
+  transform: translateY(-2px);
+  box-shadow: 0 18px 40px rgba(0,0,0,.12);
+}
+
+    </style>
+</head>
+
+<body>
+
+<!-- ================= HEADER (UNCHANGED) ================= -->
+<header class="bg-white/80 backdrop-blur-lg sticky top-0 z-50 shadow-sm">
+<div class="container mx-auto px-4">
+<div class="flex justify-between items-center py-4">
+<div class="flex items-center gap-x-8">
+<a href="#home" class="flex items-center space-x-2 text-xl font-bold">
+<img src="logo.jpeg" class="w-10 h-10 rounded-lg">
+<span class="hidden md:inline">ResQChain</span>
+</a>
+<nav class="hidden lg:flex space-x-6">
+<a href="#home">Home</a>
+<a href="#about">About Us</a>
+<a href="#how-it-works">How It Works</a>
+<a href="#faq">FAQ</a>
+<a href="#contact">Contact</a>
+</nav>
+</div>
+
+<div class="flex items-center space-x-4">
+<div id="date-time" class="hidden sm:flex flex-col items-end text-xs">
+<span id="time-display"></span>
+<span id="date-display"></span>
+</div>
+<button class="btn-auth px-4 py-2 bg-blue-600 text-white rounded-lg">Login / Sign Up</button>
+</div>
+</div>
+</div>
+</header>
+
+<!-- ================= HERO ================= -->
+<section id="home" class="relative overflow-hidden">
+<div class="hero-bg absolute inset-0"></div>
+<div class="container mx-auto px-4 py-28 relative z-10 text-center text-white max-w-3xl">
+<h1 class="text-5xl font-extrabold mb-6">
+AI-Powered Disaster Response & Emergency Relief
+</h1>
+<p class="text-lg text-blue-200 mb-8">
+Real-time disaster alerts, nearby shelters, hospitals, and evacuation support powered by AI & machine learning.
+</p>
+<div class="flex justify-center gap-4">
+<button class="btn-auth btn-lift bg-white text-blue-600 px-8 py-3 rounded-lg font-semibold">
+Get Started</button>
+<a href="#how-it-works" class="border-2 border-white px-8 py-3 rounded-lg">How It Works</a>
+</div>
+  <!-- LIVE WEATHER CARD -->
+  <div id="weatherCard"
+  class="card-3d glass mt-12 mx-auto max-w-sm flex items-center gap-6
+         px-8 py-6 rounded-2xl
+         text-white shadow-lg animate-pulse">
+
+    <div class="text-5xl" id="weatherIcon">🌤️</div>
+
+    <div class="text-left">
+      <div class="text-sm uppercase tracking-wide text-blue-200">
+        Current Weather
+      </div>
+      <div class="text-2xl font-bold text-white drop-shadow" id="weatherTemp">--°C</div>
+
+      <div class="text-sm text-white/90">
+        Wind: <span id="weatherWind">--</span> km/h
+      </div>
+    </div>
+  </div>
+
+
+<!-- Feature Cards -->
+<div class="mt-20 grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
+<div class="card-3d glass p-6 rounded-xl">
+
+<h3 class="font-bold mb-2">AI Disaster Status</h3>
+<p class="text-sm text-blue-200">
+Live AI analysis of disasters and risk near your location.
+</p>
+</div>
+<div class="card-3d glass p-6 rounded-xl">
+
+<h3 class="font-bold mb-2">Smart Location Intelligence</h3>
+<p class="text-sm text-blue-200">
+Automatically shows nearest hospitals, shelters, and medicine shops.
+</p>
+</div>
+<div class="card-3d glass p-6 rounded-xl">
+<h3 class="font-bold mb-2">ML Risk Assessment</h3>
+<p class="text-sm text-blue-200">
+Machine learning models classify severity and urgency.
+</p>
+</div>
+<div class="card-3d glass p-6 rounded-xl">
+<h3 class="font-bold mb-2">Panic-First Access</h3>
+<p class="text-sm text-blue-200">
+Critical info available instantly — even before login.
+</p>
+</div>
+</div>
+</div>
+</section>
+
+<!-- ================= ABOUT ================= -->
+<section id="about" class="py-20 bg-white">
+<div class="container mx-auto px-4 max-w-5xl">
+<h2 class="text-4xl font-bold text-center">About ResQChain</h2>
+<div class="section-divider"></div>
+<p class="text-lg text-center text-slate-600 mb-10">
+ResQChain is an AI-driven disaster response platform designed to reduce panic and guide civilians toward immediate help.
+</p>
+
+<p class="text-slate-600 mb-4">
+Using machine learning, live APIs, and geospatial intelligence, ResQChain helps people quickly find nearby shelters, hospitals, medicine shops, and evacuation routes during emergencies.
+</p>
+
+<p class="text-slate-600">
+Built for hackathons under <b>AI for Social Good</b>, the system prioritizes human safety, speed, and clarity over complexity.
+</p>
+</div>
+</section>
+
+<!-- ================= HOW IT WORKS ================= -->
+<section id="how-it-works" class="py-20">
+<div class="container mx-auto px-4">
+<h2 class="text-4xl font-bold text-center">How It Works</h2>
+<div class="section-divider"></div>
+
+<div class="grid md:grid-cols-3 gap-8 mt-12 text-center">
+<div class="card-3d bg-white p-8 rounded-xl shadow">
+
+<h3 class="text-xl font-bold mb-2">1. Analyze</h3>
+<p>
+AI models analyze weather, disaster alerts, and location data in real time.
+</p>
+</div>
+<div class="card-3d bg-white p-8 rounded-xl shadow">
+<h3 class="text-xl font-bold mb-2">2. Locate</h3>
+<p>
+Nearby shelters, hospitals, and medicine shops are ranked by distance and need.
+</p>
+</div>
+<div class="card-3d bg-white p-8 rounded-xl shadow">
+<h3 class="text-xl font-bold mb-2">3. Respond</h3>
+<p>
+Civilians request help, shelters respond, and relief status is tracked live.
+</p>
+</div>
+</div>
+</div>
+</section>
+
+<!-- ================= FAQ ================= -->
+<section id="faq" class="py-20 bg-white">
+<div class="container mx-auto px-4 max-w-3xl">
+<h2 class="text-4xl font-bold text-center">FAQ</h2>
+<div class="section-divider"></div>
+
+<div class="accordion space-y-4">
+<div class="accordion-item border rounded">
+<button class="accordion-header w-full p-4 flex justify-between">
+What is ResQChain?
+<span class="accordion-icon">▼</span>
+</button>
+<div class="accordion-content text-slate-600">
+ResQChain is an AI-based disaster response platform that helps civilians quickly find safety, medical support, and shelters during emergencies.
+</div>
+</div>
+
+<div class="accordion-item border rounded">
+<button class="accordion-header w-full p-4 flex justify-between">
+How does AI help here?
+<span class="accordion-icon">▼</span>
+</button>
+<div class="accordion-content p-4 text-slate-600">
+Machine learning models assess disaster severity and prioritize emergency response using real-time data.
+</div>
+</div>
+
+<div class="accordion-item border rounded">
+<button class="accordion-header w-full p-4 flex justify-between">
+Who can use the platform?
+<span class="accordion-icon">▼</span>
+</button>
+<div class="accordion-content p-4 text-slate-600">
+Civilians, shelters, and authorities can access different features based on their role.
+</div>
+</div>
+</div>
+</div>
+</section>
+
+<!-- ================= CONTACT ================= -->
+<section id="contact" class="py-20 bg-white">
+  <div class="max-w-xl mx-auto text-center">
+    <h2 class="text-4xl font-bold">Contact Us</h2>
+    <div class="section-divider"></div>
+
+    <form id="contactForm" class="space-y-4 mt-6">
+      <input class="w-full border p-3 rounded" placeholder="Name" required>
+      <input class="w-full border p-3 rounded" placeholder="Email" required>
+      <textarea class="w-full border p-3 rounded" placeholder="Message" required></textarea>
+      <button class="w-full bg-blue-600 text-white py-3 rounded">
+        Send Message
+      </button>
+    </form>
+  </div>
+</section>
+
+<!-- ================= LOGIN MODAL (UNCHANGED) ================= -->
+<!-- SAME LOGIN LOGIC & REDIRECTS -->
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+
+  /* ---------------- CLOCK ---------------- */
+  const timeEl = document.getElementById('time-display');
+  const dateEl = document.getElementById('date-display');
+  setInterval(() => {
+    const d = new Date();
+    timeEl.textContent = d.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
+    dateEl.textContent = d.toLocaleDateString([], {weekday:'short',day:'numeric',month:'short'});
+  },1000);
+async function loadWeather(){
+  try{
+    const lat = 13.08;   // Chennai
+    const lon = 80.27;
+
+    const res = await fetch(
+      `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true`
+    );
+    const data = await res.json();
+if(!data.current_weather) return;
+const w = data.current_weather;
+
+    document.getElementById("weatherTemp").textContent =
+      Math.round(w.temperature) + "°C";
+
+    document.getElementById("weatherWind").textContent =
+      Math.round(w.windspeed);
+
+    const icons = {
+      0:"☀️",1:"🌤️",2:"⛅",3:"☁️",
+      61:"🌧️",63:"🌧️",80:"🌦️",
+      95:"⛈️"
+    };
+
+    document.getElementById("weatherIcon").textContent =
+      icons[w.weathercode] || "🌡️";
+
+    document.getElementById("weatherCard")
+      .classList.remove("animate-pulse");
+
+  } catch {
+    document.getElementById("weatherTemp").textContent = "N/A";
+  }
+}
+
+loadWeather();
+
+  /* ---------------- AUTH MODAL ---------------- */
+  const authModal = document.getElementById('authModal');
+  const loginView = document.getElementById('loginView');
+  const signUpView = document.getElementById('signUpView');
+
+  const openModal = (mode) => {
+    authModal.classList.remove('hidden');
+    if(mode === 'signup'){
+      loginView.classList.add('hidden');
+      signUpView.classList.remove('hidden');
+    } else {
+      signUpView.classList.add('hidden');
+      loginView.classList.remove('hidden');
+    }
+  };
+
+  const closeModal = () => authModal.classList.add('hidden');
+
+  document.querySelectorAll('.btn-auth').forEach(btn=>{
+    btn.addEventListener('click',()=>{
+      if(btn.textContent.includes('Get Started')){
+        openModal('signup');
+      } else {
+        openModal('login');
+      }
+    });
+  });
+
+  document.querySelectorAll('.modal-close').forEach(b=>b.onclick=closeModal);
+  authModal.onclick=e=>{ if(e.target===authModal) closeModal(); };
+
+  document.getElementById('showSignUpView').onclick=()=>openModal('signup');
+  document.getElementById('showLoginView').onclick=()=>openModal('login');
+
+  /* ---------------- LOGIN LOGIC (FIXED) ---------------- */
+  document.getElementById('loginForm').addEventListener('submit', e=>{
+    e.preventDefault();
+
+    const phone = loginMobile.value.trim();
+    const pass  = loginPassword.value.trim();
+    const isShelter = loginAccountType.checked;
+
+    if(!isShelter && phone==="1234567890" && pass==="resq"){
+      window.location.href = "new_civ.html";
+    }
+    else if(isShelter && phone==="0987654321" && pass==="chain"){
+      window.location.href = "shelter.html";
+    }
+    else{
+      alert("Invalid credentials or wrong account type");
+    }
+  });
+
+  /* ---------------- SIGNUP REDIRECT ---------------- */
+  document.getElementById('signUpForm').addEventListener('submit', e=>{
+    e.preventDefault();
+    const isShelter = signUpAccountType.checked;
+    window.location.href = isShelter ? "shelter.html" : "new_civ.html";
+  });
+
+  /* ---------------- FAQ ACCORDION (FIXED) ---------------- */
+  /* ---------------- FAQ ACCORDION (WORKING) ---------------- */
+/* ---------------- FAQ ACCORDION (CORRECT) ---------------- */
+document.querySelectorAll('.accordion-header').forEach(header => {
+  header.addEventListener('click', () => {
+    const item = header.parentElement;
+    const content = item.querySelector('.accordion-content');
+
+    document.querySelectorAll('.accordion-item').forEach(i => {
+      if (i !== item) {
+        i.classList.remove('active');
+        i.querySelector('.accordion-content').style.maxHeight = null;
+      }
+    });
+
+    item.classList.toggle('active');
+    content.style.maxHeight = item.classList.contains('active')
+      ? content.scrollHeight + "px"
+      : null;
+  });
+});
+
+
+
+  /* ---------------- CONTACT FORM ---------------- */
+  document.getElementById('contactForm').addEventListener('submit',e=>{
+    e.preventDefault();
+    alert("Message sent successfully!");
+    e.target.reset();
+  });
+
+});
+/* ---------- 3D / MODERN UI EFFECTS ---------- */
+
+
+</script>
+<!-- AUTH MODAL -->
+<div id="authModal" class="fixed inset-0 hidden bg-black/50 flex items-center justify-center z-50">
+  <div class="bg-white p-6 rounded-xl w-full max-w-md relative">
+    <button class="modal-close absolute top-3 right-3 text-xl">&times;</button>
+
+    <!-- LOGIN -->
+    <div id="loginView">
+      <h2 class="text-2xl font-bold mb-4">Login</h2>
+
+      <form id="loginForm" class="space-y-4">
+        <input id="loginMobile" class="w-full border p-2 rounded" placeholder="Phone Number" required>
+        <input id="loginPassword" type="password" class="w-full border p-2 rounded" placeholder="Password" required>
+
+        <div class="flex justify-center items-center gap-3">
+          <span>Civilian</span>
+          <label class="switch">
+            <input type="checkbox" id="loginAccountType">
+            <span class="slider"></span>
+          </label>
+          <span>Shelter</span>
+        </div>
+
+        <button class="w-full bg-blue-600 text-white py-2 rounded">Login</button>
+      </form>
+
+      <p class="text-center mt-4">
+        New user?
+        <button id="showSignUpView" class="text-blue-600 font-semibold">Sign Up</button>
+      </p>
+    </div>
+
+    <!-- SIGNUP -->
+    <div id="signUpView" class="hidden">
+      <h2 class="text-2xl font-bold mb-4">Sign Up</h2>
+
+      <form id="signUpForm" class="space-y-4">
+        <input class="w-full border p-2 rounded" placeholder="Name" required>
+        <input class="w-full border p-2 rounded" placeholder="Phone" required>
+
+        <div class="flex justify-center items-center gap-3">
+          <span>Civilian</span>
+          <label class="switch">
+            <input type="checkbox" id="signUpAccountType">
+            <span class="slider"></span>
+          </label>
+          <span>Shelter</span>
+        </div>
+
+        <button class="w-full bg-blue-600 text-white py-2 rounded">Create Account</button>
+      </form>
+
+      <p class="text-center mt-4">
+        Already have an account?
+        <button id="showLoginView" class="text-blue-600 font-semibold">Login</button>
+      </p>
+    </div>
+  </div>
+</div>
+
+
+</body>
+</html>
+
